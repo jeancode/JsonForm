@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario Multi-Parte Animado con Confirmación Completa (iOS Dark Mode)</title>
+    <style>
+        /* -------------------- Variables CSS para colores Dark Mode (Estilo iOS) -------------------- */
+        :root {
+            --background-color-body: #1c1c1e; /* Fondo muy oscuro */
+            --background-color-container: #2c2c2e; /* Contenedor más claro */
+            --text-color-primary: #f2f2f7; /* Texto claro principal */
+            --text-color-secondary: #a9a9b0; /* Texto gris claro (placeholders, etiquetas secundarias) */
+            --border-color: #48484a; /* Borde sutil para separadores y inputs */
+            --input-background: #3a3a3c; /* Fondo input oscuro */
+            --button-primary: #0a84ff; /* Azul iOS principal */
+            --button-primary-hover: #007aff; /* Azul más oscuro al pasar el ratón */
+            --button-danger: #ff453a; /* Rojo iOS para acciones negativas */
+            --button-danger-hover: #d93025; /* Rojo más oscuro al pasar el ratón */
+            --button-success: #30d158; /* Verde iOS para acciones positivas */
+            --button-success-hover: #28c44c; /* Verde más oscuro al pasar el ratón */
+            --button-disabled: #545458; /* Gris para botones deshabilitados */
+            --shadow-color: rgba(0, 0, 0, 0.5); /* Sombra oscura para el contenedor */
+        }
+
+        /* -------------------- Estilos Generales -------------------- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; /* Fuente nativa iOS/macOS */
+            display: flex;
+            justify-content: center; /* Centrar horizontalmente */
+            align-items: flex-start; /* Alinear arriba verticalmente (útil si el formulario es largo) */
+            min-height: 100vh; /* Asegurar que ocupe al menos la altura de la ventana */
+            background-color: var(--background-color-body);
+            color: var(--text-color-primary);
+            padding: 20px; /* Espacio alrededor del contenedor principal */
+            box-sizing: border-box;
+            line-height: 1.6; /* Mejorar legibilidad del texto general */
+        }
+
+        #form-container {
+            background-color: var(--background-color-container);
+            padding: 30px; /* Espacio interno uniforme */
+            border-radius: 10px; /* Bordes más redondeados, estilo iOS */
+            box-shadow: 0 4px 15px var(--shadow-color); /* Sombra más prominente y oscura */
+            width: 90%; /* Ancho adaptable */
+            max-width: 500px; /* Ancho máximo para legibilidad en pantallas grandes */
+            text-align: center; /* Centrar el contenido interno */
+            overflow: hidden; /* Ocultar partes de los pasos fuera del contenedor durante la animación */
+            position: relative; /* Necesario si hay elementos posicionados absolutamente dentro (aunque #form-step-container ya lo es) */
+        }
+
+        h2 {
+            color: var(--text-color-primary);
+            margin-top: 0;
+            margin-bottom: 25px; /* Más espacio debajo del título principal */
+            font-size: 1.8em;
+            font-weight: 600; /* Peso de fuente semi-bold */
+        }
+
+        /* -------------------- Estilos de los Pasos (Contenedor y Pasos Individuales) -------------------- */
+        #form-step-container {
+            position: relative; /* Contenedor de referencia para los pasos absolutos */
+            width: 100%;
+            /* Importante: define una altura mínima para evitar que el contenedor colapse */
+            /* y los botones salten durante la transición si el contenido del paso es muy corto. */
+            min-height: 160px; /* Altura mínima ajustada para el contenido típico de un paso */
+            overflow: hidden; /* Ocultar los pasos que están fuera de la vista */
+            margin-bottom: 25px; /* Espacio entre el contenedor de pasos y los botones */
+            box-sizing: border-box;
+        }
+
+        /* Estilos base para todos los elementos de paso (inputs y confirmación) */
+        .form-step, .confirmation-step {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            /* Padding interno. El bottom padding crea espacio antes del separador. */
+            padding: 0 0 20px 0; /* Espacio abajo antes del borde, 0 a los lados */
+            border-bottom: 1px solid var(--border-color); /* Separador visual entre pasos */
+            box-sizing: border-box;
+            text-align: left; /* Alinear contenido de los pasos a la izquierda */
+
+            /* Estados iniciales y de transición manejados por JavaScript */
+            opacity: 0;
+            transform: translateX(100%); /* Por defecto, fuera de pantalla a la derecha */
+            transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out; /* Animación suave */
+            pointer-events: none; /* Deshabilitar interacciones cuando no está visible/activo */
+        }
+
+         /* El paso activo (visible y en el centro) */
+         /* Las propiedades transform y opacity para el estado 'active' son establecidas por JS */
+         .form-step.active, .confirmation-step.active {
+              z-index: 1; /* Asegurar que el paso activo esté por encima de los otros */
+              pointer-events: auto; /* Habilitar interacciones en el paso activo */
+         }
+
+         /* Eliminar el borde inferior del último paso (confirmación) */
+         .confirmation-step {
+             border-bottom: none; /* No hay borde después del último paso */
+             padding-bottom: 0; /* No se necesita padding para un borde inexistente */
+             min-height: 100px; /* Ajustar min-height si el contenido de confirmación es muy diferente */
+         }
+
+
+        /* -------------------- Estilos de los Campos de Entrada -------------------- */
+        .form-step label {
+            display: block;
+            margin-bottom: 8px; /* Espacio entre etiqueta y campo */
+            font-weight: 500; /* Peso de fuente ligeramente más ligero que bold */
+            color: var(--text-color-primary);
+            font-size: 1em;
+        }
+
+        .form-step input {
+            width: 100%; /* Ocupar todo el ancho disponible dentro del padding del paso */
+            padding: 10px 12px; /* Espacio interno del input */
+            margin-bottom: 15px; /* Espacio debajo del input antes del siguiente elemento (si lo hubiera) o fin del paso */
+            border: 1px solid var(--border-color);
+            border-radius: 6px; /* Bordes redondeados para inputs */
+            box-sizing: border-box; /* Incluir padding y border en el width */
+            background-color: var(--input-background);
+            color: var(--text-color-primary);
+            font-size: 1em;
+            line-height: 1.4;
+        }
+
+        /* Estilo para el placeholder en diferentes navegadores */
+        .form-step input::placeholder {
+            color: var(--text-color-secondary);
+            opacity: 1; /* Asegurar visibilidad completa */
+        }
+        .form-step input::-webkit-input-placeholder { color: var(--text-color-secondary); }
+        .form-step input::-moz-placeholder { color: var(--text-color-secondary); opacity: 1;}
+        .form-step input:-ms-input-placeholder { color: var(--text-color-secondary); }
+        .form-step input:-moz-placeholder { color: var(--text-color-secondary); opacity: 1;}
+
+
+        /* Eliminar el margin-bottom del último input en un paso (opcional, si solo hay un input por paso) */
+        .form-step input:last-child {
+             margin-bottom: 0; /* El padding-bottom del step maneja el espacio */
+        }
+
+
+        /* -------------------- Estilos del Paso de Confirmación -------------------- */
+        .confirmation-step h3 {
+            margin-top: 0;
+            margin-bottom: 20px; /* Espacio debajo del título de confirmación */
+            text-align: center;
+            color: var(--text-color-primary);
+            font-size: 1.5em;
+            font-weight: 600;
+        }
+
+        .confirmation-step p {
+            margin-bottom: 10px; /* Espacio entre cada par clave-valor */
+            line-height: 1.5;
+            word-break: break-word; /* Romper palabras largas si es necesario */
+            color: var(--text-color-primary);
+            font-size: 1em; /* Tamaño de fuente ligeramente más grande para los datos */
+            display: flex; /* Usar flexbox para alinear la etiqueta y el valor */
+            align-items: baseline; /* Alinear por la línea base del texto */
+        }
+
+        .confirmation-step strong {
+             margin-right: 10px; /* Espacio después de la etiqueta */
+             color: var(--text-color-secondary); /* Etiqueta en gris secundario */
+             font-weight: 500; /* Peso de fuente para la etiqueta */
+             min-width: 100px; /* Ancho mínimo para alinear etiquetas si son cortas */
+             flex-shrink: 0; /* Evitar que la etiqueta se encoja */
+        }
+         .confirmation-step p span {
+             flex-grow: 1; /* Permitir que el valor ocupe el espacio restante */
+         }
+
+
+        /* -------------------- Estilos de los Botones de Navegación -------------------- */
+        #navigation-buttons {
+            text-align: center; /* Centrar los botones */
+            margin-bottom: 20px; /* Espacio antes de la sección de exportación */
+            min-height: 40px; /* Reservar espacio para los botones para evitar saltos */
+            display: flex; /* Usar flexbox para distribuir los botones */
+            justify-content: center; /* Centrar los botones dentro del flex container */
+            gap: 10px; /* Espacio entre botones */
+            flex-wrap: wrap; /* Permitir que los botones se envuelvan en líneas si no caben */
+        }
+
+        #navigation-buttons button,
+        #export-btn {
+            padding: 10px 20px; /* Espacio interno de los botones */
+            border: none;
+            border-radius: 6px; /* Bordes redondeados para botones */
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500; /* Peso de fuente */
+            transition: background-color 0.3s ease, opacity 0.3s ease, transform 0.1s ease; /* Animación suave */
+            min-width: 100px; /* Ancho mínimo para botones */
+        }
+
+        /* Colores específicos de botones */
+        #prev-btn {
+             background-color: var(--button-primary);
+             color: white;
+        }
+        #prev-btn:hover:not(:disabled) { background-color: var(--button-primary-hover); }
+
+        #next-btn {
+            background-color: var(--button-primary);
+            color: white;
+        }
+        #next-btn:hover:not(:disabled) { background-color: var(--button-primary-hover); }
+
+        #export-btn {
+            background-color: var(--button-success);
+            color: white;
+        }
+        #export-btn:hover:not(:disabled) { background-color: var(--button-success-hover); }
+
+
+        /* Estilo para botones deshabilitados */
+        button:disabled {
+            background-color: var(--button-disabled);
+            color: var(--text-color-secondary);
+            cursor: not-allowed;
+            opacity: 0.7; /* Indicar estado deshabilitado */
+            transform: scale(1); /* Reset any potential hover scale on disable */
+        }
+         button:disabled:hover { /* No cambiar color/background en hover si está deshabilitado */
+            background-color: var(--button-disabled);
+            color: var(--text-color-secondary);
+         }
+
+
+        /* -------------------- Estilos del Área de Exportación -------------------- */
+        #export-container {
+            margin-top: 20px;
+            text-align: left;
+            display: none; /* Oculto inicialmente */
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out; /* Transición suave al mostrar */
+        }
+
+        /* Clase para hacer visible el área de exportación */
+        #export-container.visible {
+            display: block; /* Cambiar a block para que ocupe espacio */
+            opacity: 1; /* Transicionar a visible */
+        }
+
+        #export-container h4 {
+             color: var(--text-color-primary);
+             margin-top: 15px;
+             margin-bottom: 10px;
+             font-size: 1.2em;
+             font-weight: 600;
+        }
+
+        #json-output {
+            margin-top: 10px;
+            padding: 15px;
+            background-color: var(--input-background); /* Usar color de fondo similar al input */
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            white-space: pre-wrap; /* Preservar saltos de línea y espacios, romper líneas largas */
+            word-wrap: break-word; /* Asegurar que las palabras largas se rompan */
+            max-height: 200px; /* Altura máxima con scroll */
+            overflow-y: auto; /* Añadir scroll si el contenido excede max-height */
+            color: var(--text-color-primary);
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace; /* Fuente monoespaciada para código */
+            font-size: 0.9em;
+            line-height: 1.5;
+            scrollbar-color: var(--button-disabled) var(--input-background); /* Estilo de scrollbar (Firefox) */
+            scrollbar-width: thin;
+        }
+        /* Estilo de scrollbar (Webkit) */
+        #json-output::-webkit-scrollbar {
+            width: 8px;
+        }
+        #json-output::-webkit-scrollbar-track {
+            background: var(--input-background);
+            border-radius: 10px;
+        }
+        #json-output::-webkit-scrollbar-thumb {
+            background: var(--button-disabled);
+            border-radius: 10px;
+        }
+        #json-output::-webkit-scrollbar-thumb:hover {
+            background: var(--text-color-secondary);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="form-container">
+        <h2>Formulario por Partes</h2>
+
+        <!-- Este contenedor albergará dinámicamente los pasos del formulario -->
+        <div id="form-step-container">
+            <!-- Los divs .form-step y .confirmation-step serán inyectados aquí por JS -->
+            <!-- Serán posicionados de forma absoluta para permitir la animación de deslizamiento -->
+        </div>
+
+        <!-- Área para los botones de navegación -->
+        <div id="navigation-buttons">
+            <button id="prev-btn">Anterior</button>
+            <button id="next-btn">Siguiente</button>
+            <!-- El botón de Exportar se controla dinámicamente su visibilidad con JS -->
+             <button id="export-btn" style="display: none;">Exportar JSON</button>
+        </div>
+
+        <!-- Área para mostrar la salida JSON -->
+        <div id="export-container">
+             <h4>Datos Recopilados:</h4>
+             <pre id="json-output"></pre>
+        </div>
+    </div>
+
+    <script>
+        // -------------------- Configuración de Datos y Estado --------------------
+        // Estructura que define los campos del formulario
+        const formDataStructure = [
+            { type: "input", clase: "texto", id: "usuario-id-123", name: "Usuario" },
+            { type: "input", clase: "numero", id: "telefono-id-456", name: "Telefono" },
+            { type: "input", clase: "texto", id: "email-id-789", name: "Email" },
+            { type: "input", clase: "texto", id: "direccion-id-abc", name: "Direccion" },
+            { type: "input", clase: "numero", id: "edad-id-def", name: "Edad" }
+        ];
+
+        // Mapeo de la propiedad 'clase' de nuestra estructura a los 'type' de input HTML
+        const inputTypeMap = {
+            "texto": "text",
+            "numero": "number",
+            // Se pueden añadir más mapeos si es necesario (e.g., "email": "email", "password": "password")
+        };
+
+        // Objeto para almacenar los valores recolectados de los campos del formulario
+        // Se inicializa con claves vacías basadas en formDataStructure al crear los inputs
+        const formDataValues = {};
+
+        // Índice del paso actualmente visible. -1 indica antes del primer paso.
+        let currentStepIndex = -1;
+        // El número total de "vistas" incluye todos los pasos de input más el paso de confirmación
+        const totalViews = formDataStructure.length + 1; // N campos + 1 confirmación
+
+        // Referencias a los elementos clave del DOM
+        const formStepContainer = document.getElementById('form-step-container');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const exportContainer = document.getElementById('export-container');
+        const jsonOutput = document.getElementById('json-output');
+
+        // Array para almacenar las referencias a los elementos DIV que representan cada paso visual
+        const stepElements = [];
+
+        // -------------------- Lógica de Creación de Pasos --------------------
+
+        /**
+         * Crea dinámicamente los elementos HTML para cada paso del formulario
+         * (los campos de entrada y el paso de confirmación) y los añade al DOM.
+         */
+        function createSteps() {
+            // Crear y añadir los divs para cada campo de entrada
+            formDataStructure.forEach((field, index) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.classList.add('form-step');
+                stepDiv.dataset.stepIndex = index; // Guarda el índice del paso en un atributo de datos
+
+                const label = document.createElement('label');
+                label.textContent = field.name + ':'; // Texto de la etiqueta
+                label.setAttribute('for', field.id); // Asociar etiqueta con input por ID
+
+                const input = document.createElement('input');
+                input.setAttribute('type', inputTypeMap[field.clase] || 'text'); // Obtiene el tipo de input HTML
+                input.setAttribute('id', field.id); // ID del input
+                input.setAttribute('name', field.name); // Nombre usado para la clave en formDataValues
+                input.setAttribute('placeholder', 'Ingresa ' + field.name.toLowerCase()); // Texto de placeholder
+
+                // Inicializar el valor de este campo en el objeto formDataValues si aún no existe
+                // Esto asegura que todos los campos de la estructura estén presentes en el objeto final
+                if (formDataValues[field.name] === undefined) {
+                     formDataValues[field.name] = '';
+                }
+                // Establecer el valor actual en el input (útil si se vuelve atrás)
+                input.value = formDataValues[field.name];
+
+                // Añadir un listener al input para actualizar formDataValues cada vez que cambia el valor
+                input.addEventListener('input', (event) => {
+                    formDataValues[field.name] = event.target.value;
+                });
+
+                stepDiv.appendChild(label);
+                stepDiv.appendChild(input);
+                formStepContainer.appendChild(stepDiv); // Añadir el paso al contenedor principal
+                stepElements.push(stepDiv); // Guardar la referencia al elemento del paso
+            });
+
+            // Crear y añadir el div para el paso de confirmación (el último paso)
+            const confirmationDiv = document.createElement('div');
+            confirmationDiv.classList.add('confirmation-step');
+            // Su índice es el número de campos (después del último campo indexado desde 0)
+            confirmationDiv.dataset.stepIndex = formDataStructure.length;
+            formStepContainer.appendChild(confirmationDiv);
+            stepElements.push(confirmationDiv); // Guardar la referencia
+        }
+
+
+        // -------------------- Lógica de Animación y Visualización de Pasos --------------------
+
+        /**
+         * Muestra un paso específico con animación de deslizamiento.
+         * @param {number} index - El índice del paso a mostrar (0 para el primero, totalViews-1 para confirmación).
+         * @param {number} direction - La dirección del deslizamiento (1 para adelante, -1 para atrás).
+         */
+        function showView(index, direction) {
+            // Validar que el índice esté dentro del rango permitido
+            if (index < 0 || index >= totalViews) {
+                console.error("Índice de vista inválido:", index);
+                return;
+            }
+
+            // Deshabilitar botones de navegación durante la transición para evitar interrupciones
+            setNavigationButtonsEnabled(false);
+
+            const prevIndex = currentStepIndex; // Guardar el índice del paso actual antes de cambiarlo
+            currentStepIndex = index; // Actualizar el índice actual inmediatamente
+
+            // 1. Configurar el estado inicial de TODOS los pasos (transición desactivada)
+            stepElements.forEach((stepElement, i) => {
+                stepElement.style.transition = 'none'; // Desactivar temporalmente las transiciones
+                stepElement.classList.remove('active'); // Remover la clase activa del paso anterior
+                stepElement.style.pointerEvents = 'none'; // Deshabilitar eventos para todos los pasos
+
+                let initialTransform; // Posición inicial del paso antes de la animación
+                let initialOpacity = 0; // Opacidad inicial
+
+                if (i === index) {
+                    // El paso al que vamos: Comienza fuera de pantalla (izquierda o derecha)
+                    // Si es la carga inicial (prevIndex === -1), comienza en el centro (0%)
+                    if (prevIndex === -1) {
+                         initialTransform = '0%'; // Primer paso, aparece en el centro sin deslizar desde el lado
+                    } else {
+                        // Si avanzamos (direction === 1), el nuevo paso viene de la derecha (100%)
+                        // Si retrocedemos (direction === -1), el nuevo paso viene de la izquierda (-100%)
+                        initialTransform = (direction === 1) ? '100%' : '-100%';
+                    }
+                     initialOpacity = 1; // El paso entrante debe ser visible al inicio de la animación
+                } else if (i === prevIndex && prevIndex !== -1) {
+                     // El paso del que venimos: Comienza en el centro (0%)
+                    initialTransform = '0%';
+                    initialOpacity = 1; // El paso saliente es visible al inicio de la animación
+                } else if (i < index) {
+                    // Pasos que ya pasamos (están a la izquierda)
+                    initialTransform = '-100%';
+                    initialOpacity = 0;
+                } else { // i > index
+                    // Pasos que aún no hemos visto (están a la derecha)
+                    initialTransform = '100%';
+                    initialOpacity = 0;
+                }
+
+                stepElement.style.transform = `translateX(${initialTransform})`;
+                stepElement.style.opacity = initialOpacity;
+
+                // Si el paso entrante es el de confirmación, renderizar su contenido *antes* de la animación
+                 if (i === index && stepElement.classList.contains('confirmation-step')) {
+                     renderConfirmationStepContent(stepElement);
+                 }
+            });
+
+            // 2. Forzar un reflow/repaint para que el navegador aplique los estilos iniciales.
+            // Sin esto, el navegador podría agrupar los cambios de estilo inicial y final,
+            // evitando que la animación se vea correctamente.
+            // eslint-disable-next-line no-unused-expressions
+            void formStepContainer.offsetHeight;
+
+            // 3. Habilitar transición y configurar el estado final para disparar la animación
+            stepElements.forEach((stepElement, i) => {
+                // Re-activar las transiciones CSS
+                stepElement.style.transition = 'transform 0.4s ease-in-out, opacity 0.4s ease-in-out';
+
+                let finalTransform; // Posición final del paso después de la animación
+                let finalOpacity = 0; // Opacidad final
+
+                if (i === index) {
+                    // El paso al que vamos: Termina en el centro (0%)
+                    finalTransform = '0%';
+                    finalOpacity = 1;
+                    stepElement.classList.add('active'); // Marcar como activo
+                    stepElement.style.pointerEvents = 'auto'; // Habilitar eventos en el paso activo
+
+                    // Añadir listener al paso que se vuelve activo para saber cuándo terminó la transición
+                    // Usamos requestAnimationFrame para asegurar que el listener se adjunta después del DOM update
+                    requestAnimationFrame(() => {
+                        stepElement.addEventListener('transitionend', handleStepTransitionEnd, { once: true });
+                    });
+
+                } else if (i === prevIndex && prevIndex !== -1) {
+                    // El paso del que venimos: Termina fuera de pantalla (izquierda o derecha)
+                    // Si avanzamos (direction === 1), el paso saliente va a la izquierda (-100%)
+                    // Si retrocedemos (direction === -1), el paso saliente va a la derecha (100%)
+                    finalTransform = (direction === 1) ? '-100%' : '100%';
+                    finalOpacity = 0;
+                } else if (i < index) {
+                    // Pasos que permanecen a la izquierda
+                    finalTransform = '-100%';
+                    finalOpacity = 0;
+                } else { // i > index
+                    // Pasos que permanecen a la derecha
+                    finalTransform = '100%';
+                    finalOpacity = 0;
+                }
+
+                stepElement.style.transform = `translateX(${finalTransform})`;
+                stepElement.style.opacity = finalOpacity;
+            });
+
+            // Actualizar visibilidad de los botones (el estado 'disabled' se maneja después de la transición)
+            updateButtonVisibility(currentStepIndex);
+
+            // Asegurarse de que el área de exportación esté oculta al cambiar de paso
+            exportContainer.classList.remove('visible');
+            jsonOutput.textContent = ''; // Limpiar el contenido del output
+
+            // Si NO hay animación (primer paso en carga inicial, prevIndex es -1),
+            // habilitar botones y poner foco inmediatamente ya que no hay 'transitionend'
+             if (prevIndex === -1 && index === 0) {
+                  setNavigationButtonsEnabled(true);
+                  const activeInput = stepElements[index].querySelector('input');
+                  if(activeInput) {
+                      activeInput.focus();
+                  }
+             }
+        }
+
+        /**
+         * Handler llamado al finalizar la transición CSS de un paso.
+         * Se usa principalmente para re-habilitar los botones y poner el foco.
+         */
+        function handleStepTransitionEnd(event) {
+             // Verificar que la transición terminó en el elemento correcto y en la propiedad 'transform'
+             // para evitar múltiples llamadas si hay transiciones en otras propiedades o elementos hijos.
+             if (event.target === stepElements[currentStepIndex] && event.propertyName === 'transform') {
+                 // La animación del paso activo ha terminado. Es seguro interactuar.
+                 setNavigationButtonsEnabled(true); // Re-habilitar los botones
+
+                 // Poner foco en el primer input del paso activo si es un paso de entrada de datos
+                 const activeInput = stepElements[currentStepIndex].querySelector('input');
+                 if(activeInput) {
+                     activeInput.focus();
+                 }
+             }
+        }
+
+
+        // -------------------- Lógica del Paso de Confirmación --------------------
+
+        /**
+         * Rellena el contenido del paso de confirmación con los datos recolectados.
+         * Asegura que todos los campos definidos en formDataStructure se muestren,
+         * usando '-' si el valor está vacío.
+         * @param {HTMLElement} confirmationElement - El elemento DIV del paso de confirmación.
+         */
+        function renderConfirmationStepContent(confirmationElement) {
+            // Limpiar contenido anterior, manteniendo el encabezado si ya existe
+            const heading = confirmationElement.querySelector('h3') || document.createElement('h3');
+            if (!confirmationElement.querySelector('h3')) {
+                confirmationElement.innerHTML = ''; // Limpiar completamente si no hay encabezado
+                heading.textContent = 'Confirma tus Datos';
+                confirmationElement.appendChild(heading);
+            } else {
+                 // Si el encabezado ya está, solo eliminar los párrafos con los datos anteriores
+                 confirmationElement.querySelectorAll('p').forEach(p => p.remove());
+            }
+
+            // Iterar sobre la ESTRUCTURA original para asegurar que todos los campos definidos
+            // sean listados en la confirmación.
+            formDataStructure.forEach(field => {
+                const p = document.createElement('p'); // Párrafo para cada par clave-valor
+
+                const labelSpan = document.createElement('strong');
+                labelSpan.textContent = field.name + ':'; // Usar el nombre del campo de la estructura como etiqueta
+                p.appendChild(labelSpan);
+
+                const valueSpan = document.createElement('span');
+                // Obtener el valor del objeto de almacenamiento temporal (formDataValues).
+                // Mostrar el valor si existe en formDataValues y no está vacío.
+                // Si el valor no está presente en formDataValues (debería estar inicializado a '')
+                // o si está vacío (''), mostrar '-'.
+                // Usamos hasOwnProperty para una verificación más robusta.
+                const value = formDataValues.hasOwnProperty(field.name) && formDataValues[field.name] !== '' ? formDataValues[field.name] : '-';
+                valueSpan.textContent = value;
+                p.appendChild(valueSpan);
+
+                confirmationElement.appendChild(p); // Añadir el párrafo al paso de confirmación
+            });
+        }
+
+
+        // -------------------- Lógica de Botones y Navegación --------------------
+
+        /**
+         * Actualiza la visibilidad (propiedad display) de los botones de navegación y exportación.
+         * @param {number} index - El índice del paso actual.
+         */
+        function updateButtonVisibility(index) {
+            // El botón "Anterior" está oculto en el primer paso (índice 0)
+            prevBtn.style.display = (index === 0) ? 'none' : '';
+
+            // El botón "Siguiente" está oculto en el último paso (confirmación)
+            nextBtn.style.display = (index === formDataStructure.length) ? 'none' : '';
+
+            // El botón "Exportar JSON" solo es visible en el último paso (confirmación)
+            exportBtn.style.display = (index === formDataStructure.length) ? '' : 'none';
+        }
+
+        /**
+         * Habilita o deshabilita los botones de navegación y exportación.
+         * Se usa para prevenir interacciones durante las transiciones.
+         * @param {boolean} enabled - true para habilitar, false para deshabilitar.
+         */
+        function setNavigationButtonsEnabled(enabled) {
+             // Solo actualiza el estado 'disabled'. La visibilidad ('display') la controla updateButtonVisibility.
+             // Además de 'enabled', se deshabilitan lógicamente según el paso:
+             // - 'Anterior' si estamos en el primer paso (index 0)
+             // - 'Siguiente' si estamos en el último paso (confirmación)
+             // - 'Exportar' si NO estamos en el último paso
+             prevBtn.disabled = !enabled || currentStepIndex === 0;
+             nextBtn.disabled = !enabled || currentStepIndex === formDataStructure.length;
+             exportBtn.disabled = !enabled || currentStepIndex !== formDataStructure.length;
+        }
+
+
+        /**
+         * Avanza al siguiente paso del formulario. Incluye validación básica.
+         */
+        function nextView() {
+            // Validar el campo actual antes de pasar al siguiente paso
+            const currentFieldDefinition = formDataStructure[currentStepIndex];
+            // Solo validar si es un paso de entrada de datos (no el de confirmación)
+             if (currentFieldDefinition) {
+                 const inputElement = stepElements[currentStepIndex].querySelector('input');
+                 // Validación simple: si el campo es de texto o número y está vacío o solo con espacios
+                 if (inputElement && (currentFieldDefinition.clase === 'texto' || currentFieldDefinition.clase === 'numero') && inputElement.value.trim() === '') {
+                     alert('Por favor, completa el campo "' + currentFieldDefinition.name + '" antes de continuar.');
+                     inputElement.focus(); // Poner foco de nuevo en el campo incompleto
+                     return; // Detener la navegación si la validación falla
+                 }
+             }
+
+            // Si la validación pasa o es el último paso de entrada, avanzar
+            if (currentStepIndex < totalViews - 1) {
+                showView(currentStepIndex + 1, 1); // Mostrar la siguiente vista, dirección: 1 (adelante)
+            }
+        }
+
+        /**
+         * Retrocede al paso anterior del formulario.
+         */
+        function prevView() {
+            if (currentStepIndex > 0) {
+                showView(currentStepIndex - 1, -1); // Mostrar la vista anterior, dirección: -1 (atrás)
+            }
+        }
+
+        /**
+         * Recopila los datos almacenados y los muestra en formato JSON en el área de exportación.
+         */
+        function collectDataAndShowJson() {
+            // Los datos ya están actualizados en formDataValues gracias a los listeners de 'input'.
+            // formDataValues ya contiene todos los campos de formDataStructure inicializados.
+
+            // Asegurarse de que el objeto a exportar contenga solo los campos definidos en la estructura
+            const formDataForExport = {};
+            formDataStructure.forEach(field => {
+                 // Copiar el valor de formDataValues, usando '' si por alguna razón no existe o es undefined
+                 // aunque con la inicialización en createSteps esto no debería ocurrir para los campos definidos.
+                 formDataForExport[field.name] = formDataValues.hasOwnProperty(field.name) ? formDataValues[field.name] : '';
+            });
+
+
+            // Convertir el objeto de datos a una cadena JSON formateada para legibilidad
+            const jsonString = JSON.stringify(formDataForExport, null, 2); // null, 2: usar 2 espacios para indentación
+
+            // Mostrar el contenedor del output y el JSON
+            exportContainer.classList.add('visible'); // Añade la clase 'visible' para activar la transición CSS
+            jsonOutput.textContent = jsonString; // Establecer el contenido del elemento <pre>
+        }
+
+
+        // -------------------- Event Listeners --------------------
+
+        // Añadir listeners a los botones de navegación
+        nextBtn.addEventListener('click', nextView);
+        prevBtn.addEventListener('click', prevView);
+
+        // Añadir listener al botón de exportar (solo visible en el paso de confirmación)
+        exportBtn.addEventListener('click', collectDataAndShowJson);
+
+
+        // -------------------- Inicialización al cargar la página --------------------
+
+        /**
+         * Función principal de inicialización.
+         * 1. Crea los elementos HTML para todos los pasos.
+         * 2. Muestra el primer paso con una pequeña demora.
+         */
+        function initializeForm() {
+             // 1. Crear todos los elementos HTML de los pasos y añadirlos al DOM
+             createSteps();
+
+             // 2. Mostrar el primer paso (índice 0).
+             // Se usa un pequeño setTimeout para asegurar que el DOM esté completamente
+             // listo y que los estilos iniciales 'transform' y 'opacity' se apliquen *antes*
+             // de habilitar la transición y establecer los estilos finales.
+             setTimeout(() => {
+                 showView(0, 1); // Mostrar el primer paso, dirección 1 (como si viniera de "adelante")
+             }, 50); // Un retardo pequeño (e.g., 50ms) suele ser suficiente
+        }
+
+        // Ejecutar la función de inicialización cuando el DOM esté cargado
+        document.addEventListener('DOMContentLoaded', initializeForm);
+
+        // Nota: En este caso simple, la llamada a initializeForm() al final del script
+        // que está antes de </body> es suficiente porque el script espera que los
+        // elementos a los que se refiere ya existan. document.addEventListener('DOMContentLoaded', ...)
+        // es una práctica más robusta, especialmente si el script estuviera en el <head>.
+        // Mantendremos la llamada directa al final para simplicidad, pero la versión comentada
+        // con DOMContentLoaded es técnicamente más correcta para scripts en <head>.
+        // initializeForm(); // Alternativa simple si el script está al final del body
+    </script>
+
+</body>
+</html>
