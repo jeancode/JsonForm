@@ -46,7 +46,10 @@
             max-width: 500px; /* Ancho máximo para legibilidad en pantallas grandes */
             text-align: center; /* Centrar el contenido interno */
             overflow: hidden; /* Ocultar partes de los pasos fuera del contenedor durante la animación */
-            position: relative; /* Necesario si hay elementos posicionados absolutamente dentro (aunque #form-step-container ya lo es) */
+            position: relative; /* Necesario si hay elementos posicionados absolutamente dentro */
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box; /* Incluir padding y border en el width/height si se añaden */
         }
 
         h2 {
@@ -61,12 +64,12 @@
         #form-step-container {
             position: relative; /* Contenedor de referencia para los pasos absolutos */
             width: 100%;
-            /* Importante: define una altura mínima para evitar que el contenedor colapse */
-            /* y los botones salten durante la transición si el contenido del paso es muy corto. */
-            min-height: 160px; /* Altura mínima ajustada para el contenido típico de un paso */
+            /* REMOVIDO min-height fija. La altura será gestionada por JS y CSS transition */
             overflow: hidden; /* Ocultar los pasos que están fuera de la vista */
             margin-bottom: 25px; /* Espacio entre el contenedor de pasos y los botones */
             box-sizing: border-box;
+            /* Añadimos transición a la altura para un cambio suave */
+            transition: height 0.4s ease-in-out;
         }
 
         /* Estilos base para todos los elementos de paso (inputs y confirmación) */
@@ -80,6 +83,10 @@
             border-bottom: 1px solid var(--border-color); /* Separador visual entre pasos */
             box-sizing: border-box;
             text-align: left; /* Alinear contenido de los pasos a la izquierda */
+
+            /* Aplicar Flexbox para organizar los hijos verticalmente */
+            display: flex;
+            flex-direction: column;
 
             /* Estados iniciales y de transición manejados por JavaScript */
             opacity: 0;
@@ -99,17 +106,18 @@
          .confirmation-step {
              border-bottom: none; /* No hay borde después del último paso */
              padding-bottom: 0; /* No se necesita padding para un borde inexistente */
-             min-height: 100px; /* Ajustar min-height si el contenido de confirmación es muy diferente */
+             /* Flexbox ya aplicado arriba */
          }
 
 
         /* -------------------- Estilos de los Campos de Entrada -------------------- */
         .form-step label {
-            display: block;
+            display: block; /* Mantener display block para ocupar su línea */
             margin-bottom: 8px; /* Espacio entre etiqueta y campo */
             font-weight: 500; /* Peso de fuente ligeramente más ligero que bold */
             color: var(--text-color-primary);
             font-size: 1em;
+            /* Flexbox aplicado al padre (.form-step) asegura que la etiqueta esté arriba del input */
         }
 
         .form-step input {
@@ -123,6 +131,7 @@
             color: var(--text-color-primary);
             font-size: 1em;
             line-height: 1.4;
+            /* Flexbox aplicado al padre (.form-step) no interfiere aquí */
         }
 
         /* Estilo para el placeholder en diferentes navegadores */
@@ -137,12 +146,15 @@
 
 
         /* Eliminar el margin-bottom del último input en un paso (opcional, si solo hay un input por paso) */
-        .form-step input:last-child {
-             margin-bottom: 0; /* El padding-bottom del step maneja el espacio */
-        }
+        /* Si hay varios inputs, cada uno tendrá su margin-bottom */
+        /* .form-step input:last-child {
+             margin-bottom: 0;
+        } */
 
 
         /* -------------------- Estilos del Paso de Confirmación -------------------- */
+        /* .confirmation-step ya tiene display: flex; flex-direction: column; */
+
         .confirmation-step h3 {
             margin-top: 0;
             margin-bottom: 20px; /* Espacio debajo del título de confirmación */
@@ -160,6 +172,7 @@
             font-size: 1em; /* Tamaño de fuente ligeramente más grande para los datos */
             display: flex; /* Usar flexbox para alinear la etiqueta y el valor */
             align-items: baseline; /* Alinear por la línea base del texto */
+            /* Flexbox aplicado a los hijos (strong, span) */
         }
 
         .confirmation-step strong {
@@ -168,6 +181,7 @@
              font-weight: 500; /* Peso de fuente para la etiqueta */
              min-width: 100px; /* Ancho mínimo para alinear etiquetas si son cortas */
              flex-shrink: 0; /* Evitar que la etiqueta se encoja */
+             box-sizing: border-box; /* Asegurar que min-width funcione predeciblemente */
         }
          .confirmation-step p span {
              flex-grow: 1; /* Permitir que el valor ocupe el espacio restante */
@@ -178,7 +192,7 @@
         #navigation-buttons {
             text-align: center; /* Centrar los botones */
             margin-bottom: 20px; /* Espacio antes de la sección de exportación */
-            min-height: 40px; /* Reservar espacio para los botones para evitar saltos */
+            /* REMOVIDO min-height: 40px; - la altura se ajusta con el contenido */
             display: flex; /* Usar flexbox para distribuir los botones */
             justify-content: center; /* Centrar los botones dentro del flex container */
             gap: 10px; /* Espacio entre botones */
@@ -295,9 +309,11 @@
         <h2>Formulario por Partes</h2>
 
         <!-- Este contenedor albergará dinámicamente los pasos del formulario -->
+        <!-- Su altura será controlada por JS para ajustarse al paso activo -->
         <div id="form-step-container">
             <!-- Los divs .form-step y .confirmation-step serán inyectados aquí por JS -->
             <!-- Serán posicionados de forma absoluta para permitir la animación de deslizamiento -->
+            <!-- Y tendrán display: flex; flex-direction: column; para organizar su contenido -->
         </div>
 
         <!-- Área para los botones de navegación -->
@@ -330,7 +346,7 @@
         const inputTypeMap = {
             "texto": "text",
             "numero": "number",
-            // Se pueden añadir más mapeos si es necesario (e.g., "email": "email", "password": "password")
+            "email": "email" // Añadido tipo email por si se usa en el futuro
         };
 
         // Objeto para almacenar los valores recolectados de los campos del formulario
@@ -371,13 +387,13 @@
                 label.setAttribute('for', field.id); // Asociar etiqueta con input por ID
 
                 const input = document.createElement('input');
-                input.setAttribute('type', inputTypeMap[field.clase] || 'text'); // Obtiene el tipo de input HTML
+                // Usa el mapeo, por defecto 'text' si la clase no está definida
+                input.setAttribute('type', inputTypeMap[field.clase] || 'text');
                 input.setAttribute('id', field.id); // ID del input
                 input.setAttribute('name', field.name); // Nombre usado para la clave en formDataValues
                 input.setAttribute('placeholder', 'Ingresa ' + field.name.toLowerCase()); // Texto de placeholder
 
                 // Inicializar el valor de este campo en el objeto formDataValues si aún no existe
-                // Esto asegura que todos los campos de la estructura estén presentes en el objeto final
                 if (formDataValues[field.name] === undefined) {
                      formDataValues[field.name] = '';
                 }
@@ -408,7 +424,7 @@
         // -------------------- Lógica de Animación y Visualización de Pasos --------------------
 
         /**
-         * Muestra un paso específico con animación de deslizamiento.
+         * Muestra un paso específico con animación de deslizamiento y ajusta la altura del contenedor.
          * @param {number} index - El índice del paso a mostrar (0 para el primero, totalViews-1 para confirmación).
          * @param {number} direction - La dirección del deslizamiento (1 para adelante, -1 para atrás).
          */
@@ -432,35 +448,25 @@
                 stepElement.style.pointerEvents = 'none'; // Deshabilitar eventos para todos los pasos
 
                 let initialTransform; // Posición inicial del paso antes de la animación
-                let initialOpacity = 0; // Opacidad inicial
 
                 if (i === index) {
                     // El paso al que vamos: Comienza fuera de pantalla (izquierda o derecha)
                     // Si es la carga inicial (prevIndex === -1), comienza en el centro (0%)
-                    if (prevIndex === -1) {
-                         initialTransform = '0%'; // Primer paso, aparece en el centro sin deslizar desde el lado
-                    } else {
-                        // Si avanzamos (direction === 1), el nuevo paso viene de la derecha (100%)
-                        // Si retrocedemos (direction === -1), el nuevo paso viene de la izquierda (-100%)
-                        initialTransform = (direction === 1) ? '100%' : '-100%';
-                    }
-                     initialOpacity = 1; // El paso entrante debe ser visible al inicio de la animación
+                    initialTransform = (prevIndex === -1) ? '0%' : (direction === 1) ? '100%' : '-100%';
                 } else if (i === prevIndex && prevIndex !== -1) {
                      // El paso del que venimos: Comienza en el centro (0%)
                     initialTransform = '0%';
-                    initialOpacity = 1; // El paso saliente es visible al inicio de la animación
                 } else if (i < index) {
                     // Pasos que ya pasamos (están a la izquierda)
                     initialTransform = '-100%';
-                    initialOpacity = 0;
                 } else { // i > index
                     // Pasos que aún no hemos visto (están a la derecha)
                     initialTransform = '100%';
-                    initialOpacity = 0;
                 }
 
                 stepElement.style.transform = `translateX(${initialTransform})`;
-                stepElement.style.opacity = initialOpacity;
+                stepElement.style.opacity = (i === index || (i === prevIndex && prevIndex !== -1)) ? 1 : 0;
+                 // El paso entrante y saliente deben ser visibles al inicio de la animación
 
                 // Si el paso entrante es el de confirmación, renderizar su contenido *antes* de la animación
                  if (i === index && stepElement.classList.contains('confirmation-step')) {
@@ -469,79 +475,91 @@
             });
 
             // 2. Forzar un reflow/repaint para que el navegador aplique los estilos iniciales.
-            // Sin esto, el navegador podría agrupar los cambios de estilo inicial y final,
-            // evitando que la animación se vea correctamente.
             // eslint-disable-next-line no-unused-expressions
             void formStepContainer.offsetHeight;
 
             // 3. Habilitar transición y configurar el estado final para disparar la animación
+            const activeStepElement = stepElements[index];
+
             stepElements.forEach((stepElement, i) => {
                 // Re-activar las transiciones CSS
                 stepElement.style.transition = 'transform 0.4s ease-in-out, opacity 0.4s ease-in-out';
 
                 let finalTransform; // Posición final del paso después de la animación
-                let finalOpacity = 0; // Opacidad final
 
                 if (i === index) {
                     // El paso al que vamos: Termina en el centro (0%)
                     finalTransform = '0%';
-                    finalOpacity = 1;
                     stepElement.classList.add('active'); // Marcar como activo
+                    stepElement.style.opacity = 1; // Asegurar opacidad final a 1
                     stepElement.style.pointerEvents = 'auto'; // Habilitar eventos en el paso activo
-
-                    // Añadir listener al paso que se vuelve activo para saber cuándo terminó la transición
-                    // Usamos requestAnimationFrame para asegurar que el listener se adjunta después del DOM update
-                    requestAnimationFrame(() => {
-                        stepElement.addEventListener('transitionend', handleStepTransitionEnd, { once: true });
-                    });
 
                 } else if (i === prevIndex && prevIndex !== -1) {
                     // El paso del que venimos: Termina fuera de pantalla (izquierda o derecha)
-                    // Si avanzamos (direction === 1), el paso saliente va a la izquierda (-100%)
-                    // Si retrocedemos (direction === -1), el paso saliente va a la derecha (100%)
                     finalTransform = (direction === 1) ? '-100%' : '100%';
-                    finalOpacity = 0;
+                    stepElement.style.opacity = 0; // Asegurar opacidad final a 0
                 } else if (i < index) {
                     // Pasos que permanecen a la izquierda
                     finalTransform = '-100%';
-                    finalOpacity = 0;
+                     stepElement.style.opacity = 0;
                 } else { // i > index
                     // Pasos que permanecen a la derecha
                     finalTransform = '100%';
-                    finalOpacity = 0;
+                    stepElement.style.opacity = 0;
                 }
 
                 stepElement.style.transform = `translateX(${finalTransform})`;
-                stepElement.style.opacity = finalOpacity;
             });
 
-            // Actualizar visibilidad de los botones (el estado 'disabled' se maneja después de la transición)
-            updateButtonVisibility(currentStepIndex);
+            // 4. Ajustar la altura del contenedor al paso activo
+            // Usamos requestAnimationFrame para asegurar que la medida se toma después de que
+            // los estilos finales (incluyendo la clase 'active') se hayan aplicado,
+            // pero antes del siguiente repaint, lo que permite que la transición de altura ocurra suavemente.
+            requestAnimationFrame(() => {
+                 // La altura del paso activo (incluyendo padding y border bottom si existe)
+                 // OffsetHeight incluye padding y border, pero no margin.
+                 // Como los pasos tienen position: absolute, su offsetHeight refleja su altura *renderizada*
+                 // sin afectar el flujo del contenedor.
+                 const activeStepHeight = activeStepElement.offsetHeight;
+                 formStepContainer.style.height = `${activeStepHeight}px`; // Establecer la altura del contenedor
+
+                 // Añadir listener al paso activo para saber cuándo terminó la transición principal (transform/opacity)
+                 // Esto es clave para re-habilitar los botones y poner el foco.
+                 activeStepElement.addEventListener('transitionend', handleStepTransitionEnd, { once: true });
+
+                 // Si NO hay animación (primer paso en carga inicial, prevIndex es -1),
+                 // el transitionend listener de transform/opacity no se disparará porque transform no cambió.
+                 // En este caso, habilitamos botones y ponemos foco inmediatamente.
+                 // La transición de *altura* aún podría ocurrir si la altura calculada difiere de 0 inicial,
+                 // pero no afecta la interacción de botones/foco tanto como la visibilidad/posición del paso.
+                 if (prevIndex === -1 && index === 0) {
+                     setNavigationButtonsEnabled(true);
+                     const activeInput = activeStepElement.querySelector('input');
+                     if(activeInput) {
+                         activeInput.focus();
+                     }
+                 }
+            });
+
 
             // Asegurarse de que el área de exportación esté oculta al cambiar de paso
             exportContainer.classList.remove('visible');
             jsonOutput.textContent = ''; // Limpiar el contenido del output
 
-            // Si NO hay animación (primer paso en carga inicial, prevIndex es -1),
-            // habilitar botones y poner foco inmediatamente ya que no hay 'transitionend'
-             if (prevIndex === -1 && index === 0) {
-                  setNavigationButtonsEnabled(true);
-                  const activeInput = stepElements[index].querySelector('input');
-                  if(activeInput) {
-                      activeInput.focus();
-                  }
-             }
+            // Actualizar visibilidad de los botones (el estado 'disabled' se maneja después de la transición en handleStepTransitionEnd)
+            // updateButtonVisibility(currentStepIndex); // Ya se llama implícitamente en setNavigationButtonsEnabled
         }
 
         /**
-         * Handler llamado al finalizar la transición CSS de un paso.
+         * Handler llamado al finalizar la transición CSS del paso activo.
          * Se usa principalmente para re-habilitar los botones y poner el foco.
          */
         function handleStepTransitionEnd(event) {
-             // Verificar que la transición terminó en el elemento correcto y en la propiedad 'transform'
+             // Verificar que la transición terminó en el elemento correcto (el paso activo)
+             // y en la propiedad 'transform' (la transición principal de posición/visibilidad)
              // para evitar múltiples llamadas si hay transiciones en otras propiedades o elementos hijos.
              if (event.target === stepElements[currentStepIndex] && event.propertyName === 'transform') {
-                 // La animación del paso activo ha terminado. Es seguro interactuar.
+                 // La animación del paso activo (deslizamiento) ha terminado. Es seguro interactuar.
                  setNavigationButtonsEnabled(true); // Re-habilitar los botones
 
                  // Poner foco en el primer input del paso activo si es un paso de entrada de datos
@@ -550,6 +568,9 @@
                      activeInput.focus();
                  }
              }
+             // Nota: La transición de altura del formStepContainer puede terminar antes o después
+             // que la transición de transform/opacity del paso, dependiendo de las duraciones.
+             // La lógica de botones/foco se enlaza a la transición del paso mismo (`event.propertyName === 'transform'`).
         }
 
 
@@ -563,15 +584,19 @@
          */
         function renderConfirmationStepContent(confirmationElement) {
             // Limpiar contenido anterior, manteniendo el encabezado si ya existe
-            const heading = confirmationElement.querySelector('h3') || document.createElement('h3');
-            if (!confirmationElement.querySelector('h3')) {
-                confirmationElement.innerHTML = ''; // Limpiar completamente si no hay encabezado
-                heading.textContent = 'Confirma tus Datos';
-                confirmationElement.appendChild(heading);
+            const heading = confirmationElement.querySelector('h3');
+            confirmationElement.innerHTML = ''; // Limpiar completamente
+            const currentHeading = heading || document.createElement('h3'); // Reutilizar o crear
+
+            if (!heading) { // Si se creó uno nuevo
+                currentHeading.textContent = 'Confirma tus Datos';
+                confirmationElement.appendChild(currentHeading);
             } else {
-                 // Si el encabezado ya está, solo eliminar los párrafos con los datos anteriores
-                 confirmationElement.querySelectorAll('p').forEach(p => p.remove());
+                 // Si se reutiliza, solo el texto debería necesitar actualización si fuera dinámico
+                 // (en este caso es fijo 'Confirma tus Datos')
+                 confirmationElement.appendChild(currentHeading); // Volver a añadirlo
             }
+
 
             // Iterar sobre la ESTRUCTURA original para asegurar que todos los campos definidos
             // sean listados en la confirmación.
@@ -584,11 +609,9 @@
 
                 const valueSpan = document.createElement('span');
                 // Obtener el valor del objeto de almacenamiento temporal (formDataValues).
-                // Mostrar el valor si existe en formDataValues y no está vacío.
-                // Si el valor no está presente en formDataValues (debería estar inicializado a '')
-                // o si está vacío (''), mostrar '-'.
-                // Usamos hasOwnProperty para una verificación más robusta.
-                const value = formDataValues.hasOwnProperty(field.name) && formDataValues[field.name] !== '' ? formDataValues[field.name] : '-';
+                // Mostrar el valor si existe en formDataValues y no está vacío/nulo.
+                // Si el valor no está presente o está vacío, mostrar '-'.
+                const value = formDataValues.hasOwnProperty(field.name) && formDataValues[field.name] != null && formDataValues[field.name] !== '' ? formDataValues[field.name] : '-';
                 valueSpan.textContent = value;
                 p.appendChild(valueSpan);
 
@@ -600,7 +623,27 @@
         // -------------------- Lógica de Botones y Navegación --------------------
 
         /**
-         * Actualiza la visibilidad (propiedad display) de los botones de navegación y exportación.
+         * Habilita o deshabilita los botones de navegación y exportación.
+         * Se usa para prevenir interacciones durante las transiciones y controlar la lógica por paso.
+         * @param {boolean} enabled - true para habilitar la interactividad general, false para deshabilitar.
+         */
+        function setNavigationButtonsEnabled(enabled) {
+             // Controla el estado 'disabled' general (e.g., durante la animación)
+             // y combina con la lógica específica de cada botón según el paso actual.
+             prevBtn.disabled = !enabled || currentStepIndex === 0; // Deshabilitado si !enabled O si es el primer paso
+             nextBtn.disabled = !enabled || currentStepIndex === formDataStructure.length; // Deshabilitado si !enabled O si es el último paso (confirmación)
+             exportBtn.disabled = !enabled || currentStepIndex !== formDataStructure.length; // Deshabilitado si !enabled O si NO es el último paso
+
+             // Controla la visibilidad (display) basada solo en el paso actual, independientemente de 'enabled'
+             // para que los botones desaparezcan/aparezcan en los pasos correctos.
+             // Esto podría hacerse aquí o seguir usando updateButtonVisibility por separado.
+             // Mantengamos updateButtonVisibility para que sea más claro quién controla la visibilidad.
+             updateButtonVisibility(currentStepIndex);
+        }
+
+         /**
+         * Actualiza la visibilidad (propiedad display) de los botones de navegación y exportación
+         * basándose únicamente en el índice del paso actual.
          * @param {number} index - El índice del paso actual.
          */
         function updateButtonVisibility(index) {
@@ -614,22 +657,6 @@
             exportBtn.style.display = (index === formDataStructure.length) ? '' : 'none';
         }
 
-        /**
-         * Habilita o deshabilita los botones de navegación y exportación.
-         * Se usa para prevenir interacciones durante las transiciones.
-         * @param {boolean} enabled - true para habilitar, false para deshabilitar.
-         */
-        function setNavigationButtonsEnabled(enabled) {
-             // Solo actualiza el estado 'disabled'. La visibilidad ('display') la controla updateButtonVisibility.
-             // Además de 'enabled', se deshabilitan lógicamente según el paso:
-             // - 'Anterior' si estamos en el primer paso (index 0)
-             // - 'Siguiente' si estamos en el último paso (confirmación)
-             // - 'Exportar' si NO estamos en el último paso
-             prevBtn.disabled = !enabled || currentStepIndex === 0;
-             nextBtn.disabled = !enabled || currentStepIndex === formDataStructure.length;
-             exportBtn.disabled = !enabled || currentStepIndex !== formDataStructure.length;
-        }
-
 
         /**
          * Avanza al siguiente paso del formulario. Incluye validación básica.
@@ -637,11 +664,15 @@
         function nextView() {
             // Validar el campo actual antes de pasar al siguiente paso
             const currentFieldDefinition = formDataStructure[currentStepIndex];
-            // Solo validar si es un paso de entrada de datos (no el de confirmación)
-             if (currentFieldDefinition) {
+            // Solo validar si es un paso de entrada de datos (los pasos 0 a formDataStructure.length - 1)
+             if (currentStepIndex >= 0 && currentStepIndex < formDataStructure.length && currentFieldDefinition) {
                  const inputElement = stepElements[currentStepIndex].querySelector('input');
-                 // Validación simple: si el campo es de texto o número y está vacío o solo con espacios
-                 if (inputElement && (currentFieldDefinition.clase === 'texto' || currentFieldDefinition.clase === 'numero') && inputElement.value.trim() === '') {
+                 // Validación simple: si el campo es de texto, número o email y está vacío o solo con espacios
+                 const value = inputElement ? inputElement.value.trim() : '';
+                 const type = currentFieldDefinition.clase; // Usamos la 'clase' de nuestra estructura
+
+                 if (inputElement && (type === 'texto' || type === 'numero' || type === 'email') && value === '') {
+                     // Podríamos añadir validación de email más específica si el tipo es 'email'
                      alert('Por favor, completa el campo "' + currentFieldDefinition.name + '" antes de continuar.');
                      inputElement.focus(); // Poner foco de nuevo en el campo incompleto
                      return; // Detener la navegación si la validación falla
@@ -673,11 +704,9 @@
             // Asegurarse de que el objeto a exportar contenga solo los campos definidos en la estructura
             const formDataForExport = {};
             formDataStructure.forEach(field => {
-                 // Copiar el valor de formDataValues, usando '' si por alguna razón no existe o es undefined
-                 // aunque con la inicialización en createSteps esto no debería ocurrir para los campos definidos.
-                 formDataForExport[field.name] = formDataValues.hasOwnProperty(field.name) ? formDataValues[field.name] : '';
+                 // Copiar el valor de formDataValues, usando '' si por alguna razón no existe, es undefined, o null.
+                 formDataForExport[field.name] = formDataValues.hasOwnProperty(field.name) && formDataValues[field.name] != null ? formDataValues[field.name] : '';
             });
-
 
             // Convertir el objeto de datos a una cadena JSON formateada para legibilidad
             const jsonString = JSON.stringify(formDataForExport, null, 2); // null, 2: usar 2 espacios para indentación
@@ -711,23 +740,17 @@
 
              // 2. Mostrar el primer paso (índice 0).
              // Se usa un pequeño setTimeout para asegurar que el DOM esté completamente
-             // listo y que los estilos iniciales 'transform' y 'opacity' se apliquen *antes*
-             // de habilitar la transición y establecer los estilos finales.
+             // listo después de añadir los elementos y que los estilos iniciales 'transform'
+             // y 'opacity' se apliquen *antes* de habilitar la transición y establecer
+             // los estilos finales. Esto es crucial para que la animación se dispare correctamente.
              setTimeout(() => {
                  showView(0, 1); // Mostrar el primer paso, dirección 1 (como si viniera de "adelante")
              }, 50); // Un retardo pequeño (e.g., 50ms) suele ser suficiente
         }
 
-        // Ejecutar la función de inicialización cuando el DOM esté cargado
+        // Esperar a que el DOM esté completamente cargado antes de inicializar el formulario
         document.addEventListener('DOMContentLoaded', initializeForm);
 
-        // Nota: En este caso simple, la llamada a initializeForm() al final del script
-        // que está antes de </body> es suficiente porque el script espera que los
-        // elementos a los que se refiere ya existan. document.addEventListener('DOMContentLoaded', ...)
-        // es una práctica más robusta, especialmente si el script estuviera en el <head>.
-        // Mantendremos la llamada directa al final para simplicidad, pero la versión comentada
-        // con DOMContentLoaded es técnicamente más correcta para scripts en <head>.
-        // initializeForm(); // Alternativa simple si el script está al final del body
     </script>
 
 </body>
