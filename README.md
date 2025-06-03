@@ -1,4 +1,4 @@
-# Formulario Multi-Parte Animado (iOS Dark Mode)
+# Formulario Multi-Parte Animado (iOS Dark Mode)(En espera de implementar demo en un dominio externo)
 
 Este proyecto implementa un formulario web interactivo dividido en múltiples pasos, con animaciones suaves entre ellos. Está diseñado con un esquema de colores oscuro al estilo iOS y permite confirmar los datos ingresados antes de exportarlos en formato JSON.
 
